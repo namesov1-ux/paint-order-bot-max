@@ -1,22 +1,22 @@
-﻿# сновные зависимости
+﻿# Основные зависимости
 python-dotenv==1.0.0
 apscheduler==3.10.4
 pytz==2024.1
-gunicorn==20.1.0
-echo "gunicorn==20.1.0" >> requirements.txt
 
-# ля работы с Google Sheets
+# Для работы с Google Sheets
 google-auth==2.29.0
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
 google-api-python-client==2.136.0
 gspread==6.1.2
 
-# ля работы с API
+# Для работы с API
 requests==2.31.0
 aiohttp==3.9.3
 
-# ля веб-панели админа
+# Для веб-панели админа
 flask==2.3.3
 flask-cors==4.0.0
 
+# Для продакшн-сервера
+gunicorn==20.1.0
