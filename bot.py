@@ -76,4 +76,4 @@ if __name__ == "__main__":
     # Запуск Flask приложения
     port = int(os.environ.get('PORT', 5000))
     logger.info(f"🚀 Бот запускается на порту {port}")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
