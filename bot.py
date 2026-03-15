@@ -6,6 +6,10 @@ import asyncio
 import json
 from flask import Flask, request, jsonify
 
+# Отключаем автоматический перезапуск Flask
+os.environ['FLASK_RUN_FROM_CLI'] = 'false'
+os.environ['WERKZEUG_RUN_MAIN'] = 'true'
+
 from config.settings import settings
 from core.dispatcher import Dispatcher
 from core.adapters.max_adapter import MAXAdapter
@@ -132,7 +136,13 @@ if __name__ == "__main__":
     # Запуск Flask приложения
     port = int(os.environ.get('PORT', 5000))
     logger.info(f"🚀 Бот запускается на порту {port}")
-    logger.info(f"🐛 Режим отладки: {'ВКЛЮЧЕН' if app.debug else 'ВЫКЛЮЧЕН'}")
+    logger.info(f"🐛 Режим отладки: ВЫКЛЮЧЕН")
     
-    # Важно: debug=False для продакшна!
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Жёстко отключаем debug и reloader
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=False, 
+        use_reloader=False,
+        threaded=True
+    )
