@@ -45,7 +45,6 @@ class Dispatcher:
     async def process_update(self, update_data: Dict) -> bool:
         """Обработка входящего обновления от MAX"""
         try:
-            # ПОДРОБНАЯ ОТЛАДКА
             logger.info("=" * 60)
             logger.info("🔍 ПОЛУЧЕНЫ ДАННЫЕ ОТ MAX:")
             logger.info(json.dumps(update_data, indent=2, ensure_ascii=False))
@@ -54,13 +53,13 @@ class Dispatcher:
             # Проверяем структуру данных от MAX
             if 'message' in update_data:
                 logger.info("📩 Обнаружен тип: message")
-                return await self._process_message(update_data['message'])
+                return await self._process_message(update_data)
             elif 'callback_query' in update_data:
                 logger.info("🔄 Обнаружен тип: callback_query")
-                return await self._process_callback(update_data['callback_query'])
+                return await self._process_callback(update_data)
             elif 'bot_started' in update_data:
                 logger.info("🚀 Обнаружен тип: bot_started")
-                return await self._process_bot_started(update_data['bot_started'])
+                return await self._process_bot_started(update_data)
             else:
                 logger.warning(f"⚠️ Неизвестный тип update: {list(update_data.keys())}")
                 return False
@@ -75,30 +74,28 @@ class Dispatcher:
             logger.info(f"📩 Обработка сообщения. Полученные данные: {json.dumps(data, indent=2, ensure_ascii=False)}")
             
             # Извлекаем данные из структуры MAX
-            # Пробуем разные возможные пути
-            message_data = data.get('message', data)
+            message_data = data.get('message', {})
+            
+            # Извлекаем данные пользователя
+            user_data = data.get('from', {})
+            if not user_data and 'user' in data:
+                user_data = data.get('user', {})
+            
+            # Извлекаем данные чата
             chat_data = data.get('chat', {})
-            from_data = data.get('from', data.get('user', {}))
-            
-            # Если данные пришли в другом формате, пробуем альтернативные пути
-            if not from_data and 'user_id' in data:
-                from_data = {'id': data.get('user_id')}
-            
-            if not from_data:
-                logger.error("❌ Нет данных об отправителе!")
-                logger.error(f"Все ключи в data: {list(data.keys())}")
-                return False
+            if not chat_data and 'peer' in data:
+                chat_data = data.get('peer', {})
             
             # Создаем объекты с безопасным извлечением данных
-            user_id = from_data.get('id', 0)
+            user_id = user_data.get('id', 0)
             if isinstance(user_id, str) and user_id.isdigit():
                 user_id = int(user_id)
             
             user = User(
                 id=user_id,
-                first_name=from_data.get('first_name', ''),
-                last_name=from_data.get('last_name'),
-                username=from_data.get('username')
+                first_name=user_data.get('first_name', user_data.get('name', '')),
+                last_name=user_data.get('last_name'),
+                username=user_data.get('username')
             )
             
             chat_id = chat_data.get('id', user_id)
@@ -112,18 +109,18 @@ class Dispatcher:
             
             # Извлекаем текст сообщения
             text = message_data.get('text', data.get('text', ''))
-            if not text and 'body' in message_data:
-                text = message_data['body'].get('text', '')
             
             message_id = message_data.get('id', data.get('message_id', 0))
             if isinstance(message_id, str) and message_id.isdigit():
                 message_id = int(message_id)
             
+            timestamp = message_data.get('date', data.get('timestamp', data.get('date', 0)))
+            
             message = Message(
                 message_id=message_id,
                 from_user=user,
                 chat=chat,
-                date=message_data.get('date', data.get('timestamp', 0)),
+                date=timestamp,
                 text=text,
                 bot=self.adapter
             )
@@ -135,14 +132,12 @@ class Dispatcher:
             
             # Ищем подходящий handler
             for handler in self.message_handlers:
-                # Проверяем фильтры
                 filters_passed = True
                 for filter_func in handler.filters:
                     if callable(filter_func):
                         try:
-                            # Специальная обработка для Command фильтра
+                            # Проверяем команды
                             if hasattr(filter_func, 'commands'):
-                                # Проверяем команды
                                 cmd_match = False
                                 for cmd in filter_func.commands:
                                     if message.text and message.text.startswith(f'/{cmd}'):
@@ -177,24 +172,31 @@ class Dispatcher:
             logger.info(f"🔄 Обработка callback. Полученные данные: {json.dumps(data, indent=2, ensure_ascii=False)}")
             
             # Извлекаем данные из структуры MAX
-            callback_data = data.get('callback_query', data)
-            from_data = data.get('from', callback_data.get('from', {}))
-            message_data = data.get('message', callback_data.get('message', {}))
-            chat_data = message_data.get('chat', {})
+            callback_data = data.get('callback_query', {})
             
-            if not from_data:
-                from_data = {'id': data.get('user_id', 0)}
+            # Извлекаем данные пользователя
+            user_data = data.get('from', callback_data.get('from', {}))
+            if not user_data and 'user' in data:
+                user_data = data.get('user', {})
+            
+            # Извлекаем данные сообщения
+            message_data = data.get('message', callback_data.get('message', {}))
+            
+            # Извлекаем данные чата
+            chat_data = message_data.get('chat', {})
+            if not chat_data and 'peer' in message_data:
+                chat_data = message_data.get('peer', {})
             
             # Создаем объекты
-            user_id = from_data.get('id', 0)
+            user_id = user_data.get('id', 0)
             if isinstance(user_id, str) and user_id.isdigit():
                 user_id = int(user_id)
             
             user = User(
                 id=user_id,
-                first_name=from_data.get('first_name', ''),
-                last_name=from_data.get('last_name'),
-                username=from_data.get('username')
+                first_name=user_data.get('first_name', ''),
+                last_name=user_data.get('last_name'),
+                username=user_data.get('username')
             )
             
             chat_id = chat_data.get('id', user_id)
@@ -260,21 +262,18 @@ class Dispatcher:
             logger.info(f"🚀 Обработка bot_started. Полученные данные: {json.dumps(data, indent=2, ensure_ascii=False)}")
             
             # Извлекаем данные
-            from_data = data.get('from', {})
-            chat_data = data.get('chat', {})
+            user_data = data.get('from', data.get('user', {}))
+            chat_data = data.get('chat', data.get('peer', {}))
             
-            if not from_data:
-                from_data = {'id': data.get('user_id', 0)}
-            
-            user_id = from_data.get('id', 0)
+            user_id = user_data.get('id', 0)
             if isinstance(user_id, str) and user_id.isdigit():
                 user_id = int(user_id)
             
             user = User(
                 id=user_id,
-                first_name=from_data.get('first_name', ''),
-                last_name=from_data.get('last_name'),
-                username=from_data.get('username')
+                first_name=user_data.get('first_name', ''),
+                last_name=user_data.get('last_name'),
+                username=user_data.get('username')
             )
             
             chat_id = chat_data.get('id', user_id)
@@ -305,9 +304,7 @@ class Dispatcher:
                 for filter_func in handler.filters:
                     if callable(filter_func):
                         try:
-                            # Специальная обработка для Command фильтра
                             if hasattr(filter_func, 'commands'):
-                                # Для bot_started считаем, что это как /start
                                 if 'start' in filter_func.commands:
                                     continue
                                 else:
