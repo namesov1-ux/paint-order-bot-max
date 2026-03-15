@@ -1,60 +1,52 @@
-# bot.py - МАКСИМАЛЬНО УПРОЩЁННАЯ ВЕРСИЯ ДЛЯ ОТЛАДКИ
+# bot.py
 import os
 import sys
 import logging
+import asyncio
 import json
 from flask import Flask, request, jsonify
 
-logging.basicConfig(level=logging.DEBUG)
+# Отключаем автоматический перезапуск Flask
+os.environ['FLASK_RUN_FROM_CLI'] = 'false'
+os.environ['WERKZEUG_RUN_MAIN'] = 'true'
+
+from config.settings import settings
+from core.dispatcher import Dispatcher
+from core.adapters.max_adapter import MAXAdapter
+from handlers import start
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-@app.route('/webhook', methods=['POST', 'GET'])
+class PaintBot:
+    def __init__(self):
+        self.adapter = MAXAdapter(settings.BOT_TOKEN, settings.MAX_API_URL)
+        self.dp = Dispatcher(self.adapter)
+        self.dp.include_router(start.router)
+        self.adapter.dispatcher = self.dp
+        logger.info("✅ Бот инициализирован")
+    
+    async def process_webhook(self, data):
+        return await self.dp.process_update(data)
+
+bot = PaintBot()
+
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    """Простейший обработчик для отладки"""
-    
-    # Логируем метод
-    logger.info(f"METHOD: {request.method}")
-    
-    # Логируем заголовки
-    logger.info(f"HEADERS: {dict(request.headers)}")
-    
-    if request.method == 'GET':
-        return jsonify({"status": "ok", "method": "GET"})
-    
-    # Для POST - просто логируем всё и возвращаем 200
     try:
         data = request.json
-        logger.info("=" * 60)
-        logger.info("📦 ПОЛУЧЕНЫ ДАННЫЕ:")
-        logger.info(json.dumps(data, indent=2, ensure_ascii=False))
-        logger.info("=" * 60)
+        logger.info(f"📡 Получен вебхук")
         
-        # Анализируем ключи
-        logger.info(f"КЛЮЧИ ВЕРХНЕГО УРОВНЯ: {list(data.keys())}")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(bot.process_webhook(data))
+        loop.close()
         
-        # Ищем поле 'from'
-        if 'from' in data:
-            logger.info(f"✅ 'from' НАЙДЕН: {data['from']}")
-        else:
-            logger.info("❌ 'from' НЕ НАЙДЕН")
-            
-            # Ищем похожие поля
-            for key in data.keys():
-                if key in ['user', 'sender', 'author', 'creator']:
-                    logger.info(f"🔍 Найдено похожее поле '{key}': {data[key]}")
-        
-        # Проверяем структуру
-        if 'message' in data and isinstance(data['message'], dict):
-            logger.info(f"message keys: {list(data['message'].keys())}")
-            if 'from' in data['message']:
-                logger.info(f"✅ 'from' в message: {data['message']['from']}")
-        
-        return jsonify({"status": "ok", "received": True})
-        
+        return jsonify({"status": "ok", "processed": result})
     except Exception as e:
-        logger.error(f"ОШИБКА: {e}", exc_info=True)
+        logger.error(f"❌ Ошибка: {e}", exc_info=True)
         return jsonify({"status": "error"}), 500
 
 @app.route('/health', methods=['GET'])
@@ -63,5 +55,5 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 8080))
-    logger.info(f"🚀 Запуск на порту {port}")
+    logger.info(f"🚀 Бот запускается на порту {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
