@@ -13,7 +13,7 @@ os.environ['WERKZEUG_RUN_MAIN'] = 'true'
 from config.settings import settings
 from core.dispatcher import Dispatcher
 from core.adapters.max_adapter import MAXAdapter
-from handlers import start
+from handlers import start, search  # Добавили search
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ class PaintBot:
         self.adapter = MAXAdapter(settings.BOT_TOKEN, settings.MAX_API_URL)
         self.dp = Dispatcher(self.adapter)
         self.dp.include_router(start.router)
+        self.dp.include_router(search.router)  # Добавили роутер поиска
         self.adapter.dispatcher = self.dp
         logger.info("✅ Бот инициализирован")
     
