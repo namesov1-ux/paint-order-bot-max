@@ -12,7 +12,7 @@ class MAXAdapter(BaseAdapter):
         self.token = token
         self.api_url = api_url
         self.session = requests.Session()
-        # Важно: токен передаётся как есть, без Bearer
+        # Важно: токен передаётся как есть (без Bearer) согласно документации
         self.session.headers.update({
             'Authorization': self.token,
             'Content-Type': 'application/json'
@@ -24,9 +24,10 @@ class MAXAdapter(BaseAdapter):
     async def send_message(self, chat_id: int, text: str, **kwargs) -> Dict:
         """Отправка сообщения через API MAX"""
         try:
-            logger.info(f"📤 MAX: Отправка сообщения в чат {chat_id}")
+            logger.info(f"📤 MAX: Попытка отправки сообщения в чат {chat_id}")
+            logger.info(f"📤 Текст: {text[:100]}...")
             
-            # Формируем правильный payload для MAX API
+            # Формируем payload согласно документации MAX API
             payload = {
                 "recipient": {
                     "chat_id": chat_id
@@ -39,7 +40,7 @@ class MAXAdapter(BaseAdapter):
             }
             
             logger.info(f"📤 URL: {self.api_url}/messages")
-            logger.info(f"📤 Headers: {dict(self.session.headers)}")
+            logger.info(f"📤 Headers: Authorization: {self.token[:10]}...")
             logger.info(f"📤 Payload: {json.dumps(payload, ensure_ascii=False, indent=2)}")
             
             # Отправляем POST-запрос
@@ -68,7 +69,7 @@ class MAXAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"❌ Непредвиденная ошибка: {e}", exc_info=True)
             return {"ok": False, "error": str(e)}
-    
+
     async def get_me(self) -> Dict:
         """Получение информации о боте"""
         try:
@@ -92,3 +93,20 @@ class MAXAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"❌ Ошибка в get_me: {e}")
             return {"id": 0, "username": "paint_bot"}
+
+    async def edit_message_text(self, text: str, chat_id: int = None, 
+                               message_id: int = None, **kwargs) -> Dict:
+        """Редактирование сообщения (заглушка)"""
+        logger.info(f"✏️ MAX: Редактирование сообщения {message_id} (пока не реализовано)")
+        return {"ok": True}
+
+    async def answer_callback(self, callback_id: str, text: str = None, 
+                             show_alert: bool = False) -> Dict:
+        """Ответ на callback (заглушка)"""
+        logger.info(f"🔄 MAX: Ответ на callback {callback_id} (пока не реализовано)")
+        return {"ok": True}
+
+    async def set_webhook(self, url: str) -> bool:
+        """Установка вебхука (заглушка)"""
+        logger.info(f"🔗 MAX: Установка вебхука {url} (пока не реализовано)")
+        return True
