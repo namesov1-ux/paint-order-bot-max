@@ -1,1 +1,1 @@
-web: gunicorn -w 4 -b 0.0.0.0:8080 bot:app --timeout 120
+web: gunicorn -w 1 -b 0.0.0.0:8080 test_app:app
